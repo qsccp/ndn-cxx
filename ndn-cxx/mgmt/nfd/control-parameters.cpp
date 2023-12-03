@@ -24,6 +24,7 @@
 #include "ndn-cxx/encoding/tlv-nfd.hpp"
 #include "ndn-cxx/util/concepts.hpp"
 #include "ndn-cxx/util/string-helper.hpp"
+#include <iostream>
 
 namespace ndn {
 namespace nfd {
@@ -51,6 +52,9 @@ ControlParameters::wireEncode(EncodingImpl<TAG>& encoder) const
 {
   size_t totalLength = 0;
 
+  if (this->hasBandwidth()) {
+    totalLength += prependNonNegativeIntegerBlock(encoder, tlv::nfd::Bandwidth, m_bandwidth);
+  }
   if (this->hasMtu()) {
     totalLength += prependNonNegativeIntegerBlock(encoder, tlv::nfd::Mtu, m_mtu);
   }
@@ -238,6 +242,12 @@ ControlParameters::wireDecode(const Block& block)
   if (this->hasMtu()) {
     m_mtu = readNonNegativeInteger(*val);
   }
+
+  val = m_wire.find(tlv::nfd::Bandwidth);
+  m_hasFields[CONTROL_PARAMETER_BANDWIDTH] = val != m_wire.elements_end();
+  if (this->hasBandwidth()) {
+    m_bandwidth = readNonNegativeInteger(*val);
+  }
 }
 
 bool
@@ -380,6 +390,10 @@ operator<<(std::ostream& os, const ControlParameters& parameters)
 
   if (parameters.hasMtu()) {
     os << "Mtu: " << parameters.getMtu() << ", ";
+  }
+
+  if (parameters.hasBandwidth()) {
+    os << "Bandwidth: " << parameters.getBandwidth() << ", ";
   }
 
   os << ")";

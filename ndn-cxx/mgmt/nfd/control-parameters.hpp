@@ -50,6 +50,7 @@ enum ControlParameterField {
   CONTROL_PARAMETER_BASE_CONGESTION_MARKING_INTERVAL,
   CONTROL_PARAMETER_DEFAULT_CONGESTION_THRESHOLD,
   CONTROL_PARAMETER_MTU,
+  CONTROL_PARAMETER_BANDWIDTH,
   CONTROL_PARAMETER_UBOUND
 };
 
@@ -69,7 +70,8 @@ const std::string CONTROL_PARAMETER_FIELD[CONTROL_PARAMETER_UBOUND] = {
   "FacePersistency",
   "BaseCongestionMarkingInterval",
   "DefaultCongestionThreshold",
-  "Mtu"
+  "Mtu",
+  "Bandwidth",
 };
 
 /**
@@ -595,6 +597,43 @@ public: // getters & setters
     return *this;
   }
 
+  bool hasBandwidth() const
+  {
+    return m_hasFields[CONTROL_PARAMETER_BANDWIDTH];
+  }
+
+  /** \brief get bandwidth (measured in bps)
+   *
+   *  This value is capped at MAX_NDN_BITRATE, even if the bandwidth of the face is unlimited.
+   */
+  uint64_t
+  getBandwidth() const
+  {
+    BOOST_ASSERT(this->hasBandwidth());
+    return m_bandwidth;
+  }
+
+  /** \brief set bandwidth (measured in bps)
+   *
+   *  This value is capped at MAX_NDN_BITRATE, even if the bandwidth of the face is unlimited.
+   */
+  ControlParameters&
+  setBandwidth(uint64_t bandwidth)
+  {
+    m_wire.reset();
+    m_bandwidth = bandwidth;
+    m_hasFields[CONTROL_PARAMETER_BANDWIDTH] = true;
+    return *this;
+  }
+
+  ControlParameters&
+  unsetBandwidth()
+  {
+    m_wire.reset();
+    m_hasFields[CONTROL_PARAMETER_BANDWIDTH] = false;
+    return *this;
+  }
+
   const std::vector<bool>&
   getPresentFields() const
   {
@@ -652,6 +691,7 @@ private: // fields
   time::nanoseconds   m_baseCongestionMarkingInterval;
   uint64_t            m_defaultCongestionThreshold;
   uint64_t            m_mtu;
+  uint64_t            m_bandwidth;
 
 private:
   mutable Block m_wire;

@@ -105,6 +105,9 @@ Interest::wireEncode(EncodingImpl<TAG>& encoder) const
   //              [Nonce]
   //              [InterestLifetime]
   //              [HopLimit]
+  //              [Dsz]
+  //              [ServiceClass]
+  //              [DownstreamRate]
   //              [ApplicationParameters [InterestSignature]]
   // (elements are encoded in reverse order)
 
@@ -124,6 +127,24 @@ Interest::wireEncode(EncodingImpl<TAG>& encoder) const
   // ApplicationParameters and following elements (in reverse order)
   for (const auto& block : m_parameters | boost::adaptors::reversed) {
     totalLength += encoder.prependBlock(block);
+  }
+
+  // DownstreamRate
+  if (getDownstreamRate()) {
+    uint64_t downstreamRate = *getDownstreamRate();
+    totalLength += encoder.prependByteArrayBlock(tlv::DownstreamRate, reinterpret_cast<uint8_t*>(&downstreamRate), sizeof(downstreamRate));
+  }
+
+  // ServiceClass
+  if (getServiceClass()) {
+    uint8_t serviceClass = *getServiceClass();
+    totalLength += encoder.prependByteArrayBlock(tlv::ServiceClass, reinterpret_cast<uint8_t*>(&serviceClass), sizeof(serviceClass));
+  }
+
+  // Dsz
+  if (getDsz()) {
+    uint16_t dsz = *getDsz();
+    totalLength += encoder.prependByteArrayBlock(tlv::Dsz, reinterpret_cast<uint8_t*>(&dsz), sizeof(dsz));
   }
 
   // HopLimit
@@ -200,6 +221,9 @@ Interest::wireDecode(const Block& wire)
   //              [Nonce]
   //              [InterestLifetime]
   //              [HopLimit]
+  //              [Dsz]
+  //              [ServiceClass]
+  //              [DownstreamRate]
   //              [ApplicationParameters [InterestSignature]]
 
   auto element = m_wire.elements_begin();
@@ -224,6 +248,9 @@ Interest::wireDecode(const Block& wire)
   m_nonce.reset();
   m_interestLifetime = DEFAULT_INTEREST_LIFETIME;
   m_hopLimit.reset();
+  m_serviceClass.reset();
+  m_downstreamRate.reset();
+  m_dsz.reset();
   m_parameters.clear();
 
   int lastElement = 1; // last recognized element index, in spec order
@@ -290,13 +317,50 @@ Interest::wireDecode(const Block& wire)
         lastElement = 7;
         break;
       }
-      case tlv::ApplicationParameters: {
+      case tlv::Dsz: {
         if (lastElement >= 8) {
+          break; // Dsz is non-critical, ignore out-of-order appearance
+        }
+        if (element->value_size() != 2) {
+          NDN_THROW(Error("Dsz element is malformed"));
+        }
+        uint16_t dsz = 0;
+        std::memcpy(&dsz, element->value(), sizeof(dsz));
+        m_dsz = dsz;
+        lastElement = 8;
+        break;
+      }
+      case tlv::ServiceClass: {
+        if (lastElement >= 9) {
+          break; // ServiceClass is non-critical, ignore out-of-order appearance
+        }
+        if (element->value_size() != 1) {
+          NDN_THROW(Error("ServiceClass element is malformed" + std::to_string(element->value_size())));
+        }
+        m_serviceClass = *element->value();
+        lastElement = 9;
+        break;
+      }
+      case tlv::DownstreamRate: {
+        if (lastElement >= 10) {
+          break; // DownstreamRate is non-critical, ignore out-of-order appearance
+        }
+        uint64_t downstreamRate = 0;
+        if (element->value_size() != 8) {
+          NDN_THROW(Error("DownstreamRate element is malformed"));
+        }
+        std::memcpy(&downstreamRate, element->value(), sizeof(downstreamRate));
+        m_downstreamRate = downstreamRate;
+        lastElement = 10;
+        break;
+      }
+      case tlv::ApplicationParameters: {
+        if (lastElement >= 11) {
           break; // ApplicationParameters is non-critical, ignore out-of-order appearance
         }
         BOOST_ASSERT(!hasApplicationParameters());
         m_parameters.push_back(*element);
-        lastElement = 8;
+        lastElement = 11;
         break;
       }
       default: { // unrecognized element
@@ -405,6 +469,37 @@ generateNonce()
   std::memcpy(n.data(), &r, sizeof(r));
   return n;
 }
+
+const Interest&
+Interest::setServiceClass(optional<uint8_t> serviceClass) const
+{
+  if (m_serviceClass != serviceClass) {
+    m_serviceClass = serviceClass;
+    m_wire.reset();
+  }
+  return *this;
+}
+
+const Interest&
+Interest::setDownstreamRate(optional<uint64_t> downstreamRate) const
+{
+  if (m_downstreamRate != downstreamRate) {
+    m_downstreamRate = downstreamRate;
+    m_wire.reset();
+  }
+  return *this;
+}
+
+const Interest&
+Interest::setDsz(optional<uint16_t> dsz) const
+{
+  if (m_dsz != dsz) {
+    m_dsz = dsz;
+    m_wire.reset();
+  }
+  return *this;
+}
+
 
 Interest::Nonce
 Interest::getNonce() const

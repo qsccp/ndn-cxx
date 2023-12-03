@@ -272,6 +272,22 @@ public: // Data fields
   InputBuffers
   extractSignedRanges() const;
 
+
+  optional<uint8_t>
+  getServiceClass() const noexcept
+  {
+    return m_serviceClass;
+  }
+  const Data&
+  setServiceClass(optional<uint8_t> serviceClass) const;
+  optional<uint64_t>
+  getTargetRate() const noexcept
+  {
+    return m_targetRate;
+  }
+  const Data&
+  setTargetRate(optional<uint64_t> targetRate) const;
+
 public: // MetaInfo fields
   uint32_t
   getContentType() const
@@ -331,6 +347,9 @@ private:
   Block m_content;
   SignatureInfo m_signatureInfo;
   Block m_signatureValue;
+  // Add for QSCCP
+  mutable optional<uint8_t> m_serviceClass;
+  mutable optional<uint64_t> m_targetRate;
 
   mutable Block m_wire;
   mutable Name m_fullName; ///< cached FullName computed from m_wire

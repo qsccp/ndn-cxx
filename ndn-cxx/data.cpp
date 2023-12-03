@@ -22,6 +22,7 @@
 #include "ndn-cxx/data.hpp"
 #include "ndn-cxx/signature.hpp"
 #include "ndn-cxx/util/sha256.hpp"
+#include <iostream>
 
 namespace ndn {
 
@@ -50,6 +51,8 @@ Data::wireEncode(EncodingImpl<TAG>& encoder, bool wantUnsignedPortionOnly) const
   //          Name
   //          [MetaInfo]
   //          [Content]
+  //            [ServiceClass]
+  //            [TargetRate]
   //          SignatureInfo
   //          SignatureValue
   // (elements are encoded in reverse order)
@@ -66,6 +69,18 @@ Data::wireEncode(EncodingImpl<TAG>& encoder, bool wantUnsignedPortionOnly) const
 
   // SignatureInfo
   totalLength += m_signatureInfo.wireEncode(encoder, SignatureInfo::Type::Data);
+
+  // TargetRate
+  if (getTargetRate()) {
+    uint64_t targetRate = *getTargetRate();
+    totalLength += encoder.prependByteArrayBlock(tlv::TargetRate, reinterpret_cast<uint8_t*>(&targetRate), sizeof(targetRate));
+  }
+
+  // ServiceClass
+  if (getServiceClass()) {
+    uint8_t serviceClass = *getServiceClass();
+    totalLength += encoder.prependByteArrayBlock(tlv::ServiceClass, reinterpret_cast<uint8_t*>(&serviceClass), sizeof(serviceClass));
+  }
 
   // Content
   if (hasContent()) {
@@ -133,6 +148,8 @@ Data::wireDecode(const Block& wire)
   //          Name
   //          [MetaInfo]
   //          [Content]
+  //            [ServiceClass]
+  //            [TargetRate]
   //          SignatureInfo
   //          SignatureValue
 
@@ -150,6 +167,7 @@ Data::wireDecode(const Block& wire)
 
   int lastElement = 1; // last recognized element index, in spec order
   for (++element; element != m_wire.elements_end(); ++element) {
+    // std::cout << "element: " << element->type() << std::endl;
     switch (element->type()) {
       case tlv::MetaInfo: {
         if (lastElement >= 2) {
@@ -167,22 +185,47 @@ Data::wireDecode(const Block& wire)
         lastElement = 3;
         break;
       }
-      case tlv::SignatureInfo: {
+      case tlv::ServiceClass: {
         if (lastElement >= 4) {
-          NDN_THROW(Error("SignatureInfo element is out of order"));
+          break; // ServiceClass is non-critical, ignore out-of-order appearance
         }
-        m_signatureInfo.wireDecode(*element);
+        if (element->value_size() != 1) {
+          NDN_THROW(Error("ServiceClass element is malformed"));
+        }
+        m_serviceClass = *element->value();
         lastElement = 4;
         break;
       }
-      case tlv::SignatureValue: {
+      case tlv::TargetRate: {
         if (lastElement >= 5) {
-          NDN_THROW(Error("SignatureValue element is out of order"));
+          break; // TargetRate is non-critical, ignore out-of-order appearance
         }
-        m_signatureValue = *element;
+        uint64_t targetRate = 0;
+        if (element->value_size() != 8) {
+          NDN_THROW(Error("TargetRate element is malformed"));
+        }
+        std::memcpy(&targetRate, element->value(), sizeof(targetRate));
+        m_targetRate = targetRate;
         lastElement = 5;
         break;
       }
+      case tlv::SignatureInfo: {
+        if (lastElement >= 6) {
+          NDN_THROW(Error("SignatureInfo element is out of order"));
+        }
+        m_signatureInfo.wireDecode(*element);
+        lastElement = 6;
+        break;
+      }
+      case tlv::SignatureValue: {
+        if (lastElement >= 7) {
+          NDN_THROW(Error("SignatureValue element is out of order"));
+        }
+        m_signatureValue = *element;
+        lastElement = 7;
+        break;
+      }
+      
       default: { // unrecognized element
         // if the TLV-TYPE is critical, abort decoding
         if (tlv::isCriticalType(element->type())) {
@@ -337,6 +380,26 @@ Data::extractSignedRanges() const
   bufs.emplace_back(m_wire.value(),
                     std::distance(m_wire.value_begin(), lastSignedIt->end()));
   return bufs;
+}
+
+const Data&
+Data::setServiceClass(optional<uint8_t> serviceClass) const
+{
+  if (m_serviceClass != serviceClass) {
+    m_serviceClass = serviceClass;
+    m_wire.reset();
+  }
+  return *this;
+}
+
+const Data&
+Data::setTargetRate(optional<uint64_t> targetRate) const
+{
+  if (m_targetRate != targetRate) {
+    m_targetRate = targetRate;
+    m_wire.reset();
+  }
+  return *this;
 }
 
 Data&

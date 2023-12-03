@@ -70,6 +70,7 @@ enum {
   BaseCongestionMarkingInterval = 135,
   DefaultCongestionThreshold    = 136,
   Mtu                           = 137,
+  Bandwidth                     = 138,
   FaceQueryFilter               = 150,
   FaceEventNotification         = 192,
   FaceEventKind                 = 193,

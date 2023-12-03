@@ -291,6 +291,32 @@ public: // element access
   Interest&
   setNonce(optional<Nonce> nonce);
 
+  optional<uint8_t>
+  getServiceClass() const noexcept
+  {
+    return m_serviceClass;
+  }
+  const Interest&
+  setServiceClass(optional<uint8_t> serviceClass) const;
+
+  optional<uint64_t>
+  getDownstreamRate() const noexcept
+  {
+    return m_downstreamRate;
+  }
+
+  const Interest&
+  setDownstreamRate(optional<uint64_t> downstreamRate) const;
+
+  optional<uint16_t>
+  getDsz() const noexcept
+  {
+    return m_dsz;
+  }
+
+  const Interest&
+  setDsz(optional<uint16_t> dsz) const;
+
   /** @brief Change nonce value.
    *
    *  If the Nonce element is present, the new nonce value will differ from the old value.
@@ -508,6 +534,10 @@ private:
   Name m_name;
   DelegationList m_forwardingHint;
   mutable optional<Nonce> m_nonce;
+  // Add for QSCCP
+  mutable optional<uint8_t> m_serviceClass;
+  mutable optional<uint64_t> m_downstreamRate;
+  mutable optional<uint16_t> m_dsz;
   time::milliseconds m_interestLifetime;
   optional<uint8_t> m_hopLimit;
   mutable bool m_isCanBePrefixSet = false;
